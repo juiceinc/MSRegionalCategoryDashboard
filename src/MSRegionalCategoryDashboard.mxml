@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx" 
+			   minWidth="955" minHeight="600"
+			   xmlns:controls="org.juicekit.controls.*"
+			   creationComplete="application1_creationCompleteHandler(event)" xmlns:container="org.juicekit.container.*">
+	
+	<s:states>
+		<s:State name="list"/>
+		<s:State name="treemap"/>
+	</s:states>
+	
+	<fx:Script>
+		<![CDATA[
+			import flare.vis.data.Tree;
+			import flare.vis.events.VisualizationEvent;
+			
+			import mx.collections.ArrayCollection;
+			import mx.events.DragEvent;
+			import mx.events.FlexEvent;
+			
+			import org.juicekit.events.DataMouseEvent;
+			import org.juicekit.util.GraphUtil;
+			import org.juicekit.util.Strings;
+			
+			import spark.events.IndexChangeEvent;
+			
+			[Bindable] private var options:ArrayCollection = new ArrayCollection([
+				{name: 'List', state:'list'},
+				{name: 'Treemap', state:'treemap'}
+			]);
+			
+			[Bindable] private var data:ArrayCollection;
+			
+			/** Storage for the order of levels in the tree */
+			[Bindable] private var levelOrder:ArrayCollection =  new ArrayCollection(['region', 'category', 'subcategory']);
+			
+			/** Formatted maximum value on the color scale */
+			[Bindable]
+			public var scaleMax:String;
+			
+			
+			/** Formatted minimum value on the color scale */
+			[Bindable]
+			public var scaleMin:String;
+
+			protected function application1_creationCompleteHandler(event:FlexEvent):void
+			{
+				DataService.fetch();
+				data = DataService.data;
+				
+				generateTreemapData();
+			}
+
+			protected function buttonbar1_changeHandler(event:IndexChangeEvent):void
+			{
+				currentState = options[event.newIndex].state;
+				
+				generateTreemapData();
+			}
+
+			protected function generateTreemapData():void
+			{
+				if (treemap && currentState == 'treemap')
+				{
+					treemap.data = GraphUtil.treeMap(DataService.data.source, levelOrder.source, ['revenue', 'percentGrowth', 'profitMargin', 'percentDiscount', 'avgRevenue']);
+					treemap.dataRoot = (treemap.data as Tree).root;
+					
+					treemap.vis.removeEventListener(VisualizationEvent.UPDATE, calculateScaleMinMax);
+					treemap.vis.addEventListener(VisualizationEvent.UPDATE, calculateScaleMinMax);
+				}
+			}
+			
+			protected function calculateScaleMinMax(e:Event=null):void
+			{
+				if (colorCmb.selectedItem == 'percentGrowth' || colorCmb.selectedItem == 'percentDiscount' || colorCmb.selectedItem == 'profitMargin') {
+					scaleMax = Strings.format('{0:0.0%}', Number(treemap.getColorEncoder().scale.max));
+					scaleMin = Strings.format('{0:0.0%}', Number(treemap.getColorEncoder().scale.min));
+				} else {
+					scaleMax = Strings.format('{0:$#,##0}', Number(treemap.getColorEncoder().scale.max));
+					scaleMin = Strings.format('{0:$#,##0}', Number(treemap.getColorEncoder().scale.min));
+				}
+			}
+			
+			/**
+			 * Handle mouse over of treemap nodes
+			 */
+			private function treemapMouseOver(e:DataMouseEvent):void {
+				trace(e.data);
+				selectedNode.text = Strings.format("Region: {0}\n" + 
+					"Category: {1}\n" + 
+					"Subcategory: {2}\n" + 
+					"Revenue: {3:$#,##0}\n" +  
+					"Percent Growth: {4:0.0%}\n" + 
+					"Profit Margin: {5:0.0%}\n" +
+					"Discount vs Target: {6:0.0%}\n" +
+					"Avg Revenue per Customer: {7:$#,##0}",
+					e.data.region, e.data.category, e.data.subcategory, e.data.revenue, e.data.percentGrowth, e.data.profitMargin, e.data.percentDiscount, e.data.avgRevenue);
+			}
+			
+			
+			/**
+			 * Handle mouse out of treemap nodes
+			 */
+			private function treemapMouseOut(e:DataMouseEvent):void {
+				selectedNode.text = '';
+			}
+			
+			/**
+			 * Handle reordering of the treemap levels.
+			 */
+			private function handleBtnReorder(event:DragEvent):void
+			{
+				// delay briefly to allow the move animation to complete
+				treemap.data = null;
+				zoomControl.onTreeDataChanged(null);
+				setTimeout(function():void {
+					generateTreemapData();
+				}, 200);
+			}
+
+		]]>
+	</fx:Script>
+	
+	<fx:Style source="style.css"/>
+	
+	<s:VGroup width="100%" height="100%" paddingLeft="20" paddingTop="20" paddingRight="20" paddingBottom="20">
+		<s:Label text="Region and Category Analysis" styleName="jkHeader"/>
+		
+		<s:ButtonBar dataProvider="{options}" 
+					 labelField="name" selectedIndex="0" 
+					 change="buttonbar1_changeHandler(event)">
+		</s:ButtonBar>
+		
+		<mx:DataGrid dataProvider="{DataService.data}" includeIn="list"
+					 height="400">
+			<mx:columns>
+				<mx:DataGridColumn dataField="region"
+								   headerText="Region"/>
+				<mx:DataGridColumn dataField="category"
+								   headerText="Category"/>
+				<mx:DataGridColumn dataField="subcategory"
+								   headerText="Subcategory"/>
+				<mx:DataGridColumn dataField="revenue"
+								   headerText="Revenue"/>
+				<mx:DataGridColumn dataField="percentGrowth" 
+								   headerText="Revenue % Growth"/>
+				<mx:DataGridColumn dataField="profitMargin"
+								   headerText="Profit Margin"/>
+				<mx:DataGridColumn dataField="percentDiscount"
+								   headerText="Discount %"/>
+				<mx:DataGridColumn dataField="avgRevenue"
+								   headerText="Avg Revenue per Customer"/>
+			</mx:columns>
+		</mx:DataGrid>
+		
+		<!-- 
+		Controls for treemap levels, colors, size
+		-->
+		<s:HGroup verticalAlign="middle" includeIn="treemap">
+			<s:VGroup gap="-3">
+				<s:Label text="Group by:"/>
+				<s:Label text="drag to reorder" styleName="jkNotes"/>                
+			</s:VGroup>
+			<s:List id="hl"
+					dataProvider="{levelOrder}" 
+					dragComplete="handleBtnReorder(event)" 
+					dragMoveEnabled="true"
+					dropEnabled="true"
+					dragEnabled="true"
+					width="220" borderVisible="false"
+					selectionColor="#ffffff"
+					>
+				<s:layout>
+					<s:HorizontalLayout gap="2"/>
+				</s:layout>
+				<s:itemRenderer>
+					<fx:Component>
+						<s:ItemRenderer>
+							<s:Button label="{data}" width="60" height="20"/>
+						</s:ItemRenderer>
+					</fx:Component>
+				</s:itemRenderer>
+			</s:List>
+			<s:Label text="Color by:"/>
+			<s:ComboBox id="colorCmb" 
+						selectedIndex="0" 
+						dataProvider="{new ArrayCollection(['revenue', 'percentGrowth', 'profitMargin', 'percentDiscount', 'avgRevenue'])}" 
+						width="100"/>
+			<s:Label text="Size by:"/>
+			<s:ComboBox id="sizeCmb" 
+						selectedIndex="0" 
+						dataProvider="{new ArrayCollection(['revenue', 'percentGrowth', 'profitMargin', 'percentDiscount', 'avgRevenue'])}" 
+						width="100"/>
+			<s:Label text="Color palette:"/>
+			<s:ComboBox id="paletteCmb"
+						selectedIndex="0"
+						width="100"
+						dataProvider="{new ArrayCollection(['RdGy','hot', 'summer', 'cool', 'Purples', 'YlGn', 'RdGy', 'PuOr'])}"
+						/>
+			<s:Label text="Depth:"/>
+			<s:ComboBox id="depthCmb"
+						selectedIndex="0"
+						width="100"
+						dataProvider="{new ArrayCollection(['1','2','3'])}"
+						/>
+		</s:HGroup>
+
+		<!--
+		This is the treemap itself.
+		
+		TreeMapZoomControl allows the treemap to zoom into and out
+		of selected subcategories.		
+		
+		Currently the treemap can not use Flex 4 based fonts so fonts are set
+		explicitly.        
+		-->
+		<controls:TreeMapZoomControl id="zoomControl" tree="{treemap}" includeIn="treemap" fontFamily="Arial" fontSize="16" color="#333333"/>
+		
+		<s:VGroup width="100%" height="100%" includeIn="treemap">	
+			
+			<s:HGroup width="100%" height="100%" gap="20">
+				<controls:TreeMapControl id="treemap" includeIn="treemap"
+										 width="100%"
+										 height="100%" 
+										 transitionPeriod="1.2"
+										 styleFromDataRoot="true"
+										 maxDepth="{int(depthCmb.selectedItem)}"
+										 
+										 fontFamily="Arial"
+										 fontSize="16"
+										 labelEncodingField="name"
+										 labelColorStrategy="glow"
+										 truncateToFit="true"
+										 
+										 palette="{paletteCmb.selectedItem}"
+										 colorEncodingField="{colorCmb.selectedItem}"
+										 sizeEncodingField="{sizeCmb.selectedItem}"
+										 
+										 jkDataMouseOver="treemapMouseOver(event)"
+										 jkDataMouseOut="treemapMouseOut(event)"
+										 
+										 strokeColors="[0xffffff, 0xffffff, 0xffffff, 0x333333]"
+										 strokeAlphas="[1,1,1,1]"
+										 strokeThicknesses="[0,4,2,0.25]"/>
+				
+				<s:VGroup width="250" height="100%">
+					<!--
+					A description of the node that is currently under the mouse.
+					-->
+					<s:Label id="selectedNode" width="250"/>
+					<mx:Spacer height="100%"/>
+					<!--
+					Color legend
+					-->
+					<s:Group>
+						<container:PaletteCanvas palette="{'-' + paletteCmb.selectedItem}" width="20" height="150" direction="vertical"/>
+						<s:Label top="0" left="25" text="{scaleMax}"/>
+						<s:Label bottom="0" left="25" text="{scaleMin}"/>
+					</s:Group>
+				</s:VGroup>
+				
+			</s:HGroup>
+			
+		</s:VGroup>
+	</s:VGroup>
+</s:Application>
