@@ -45,6 +45,15 @@
 			/** Formatted minimum value on the color scale */
 			[Bindable]
 			public var scaleMin:String;
+			
+			[Bindable]
+			private var selectionOptions:ArrayCollection = new ArrayCollection([
+				new SelectionType('Revenue', 'revenue'),
+				new SelectionType('Percent Growth', 'percentGrowth'),
+				new SelectionType('Profit Margin', 'profitMargin'),
+				new SelectionType('Discount vs Target', 'percentDiscount'),
+				new SelectionType('Avg Revenue per Customer', 'avgRevenue')
+			]);
 
 			protected function application1_creationCompleteHandler(event:FlexEvent):void
 			{
@@ -75,7 +84,9 @@
 			
 			protected function calculateScaleMinMax(e:Event=null):void
 			{
-				if (colorCmb.selectedItem == 'percentGrowth' || colorCmb.selectedItem == 'percentDiscount' || colorCmb.selectedItem == 'profitMargin') {
+				if (colorCmb.selectedItem.fieldName == 'percentGrowth' || 
+					colorCmb.selectedItem.fieldName == 'percentDiscount' || 
+					colorCmb.selectedItem.fieldName == 'profitMargin') {
 					scaleMax = Strings.format('{0:0.0%}', Number(treemap.getColorEncoder().scale.max));
 					scaleMin = Strings.format('{0:0.0%}', Number(treemap.getColorEncoder().scale.min));
 				} else {
@@ -191,7 +202,7 @@
 					dragMoveEnabled="true"
 					dropEnabled="true"
 					dragEnabled="true"
-					width="220" borderVisible="false"
+					width="320" borderVisible="false"
 					selectionColor="#ffffff"
 					>
 				<s:layout>
@@ -200,21 +211,21 @@
 				<s:itemRenderer>
 					<fx:Component>
 						<s:ItemRenderer>
-							<s:Button label="{data}" width="60" height="20"/>
+							<s:Button label="{data}" width="100" height="20"/>
 						</s:ItemRenderer>
 					</fx:Component>
 				</s:itemRenderer>
 			</s:List>
 			<s:Label text="Color by:"/>
 			<s:ComboBox id="colorCmb" 
-						selectedIndex="0" 
-						dataProvider="{new ArrayCollection(['revenue', 'percentGrowth', 'profitMargin', 'percentDiscount', 'avgRevenue'])}" 
-						width="100"/>
+						selectedIndex="0"
+						dataProvider="{selectionOptions}"
+						width="180"/>
 			<s:Label text="Size by:"/>
 			<s:ComboBox id="sizeCmb" 
 						selectedIndex="0" 
-						dataProvider="{new ArrayCollection(['revenue', 'percentGrowth', 'profitMargin', 'percentDiscount', 'avgRevenue'])}" 
-						width="100"/>
+						dataProvider="{selectionOptions}" 
+						width="180"/>
 			<s:Label text="Color palette:"/>
 			<s:ComboBox id="paletteCmb"
 						selectedIndex="0"
@@ -257,8 +268,8 @@
 										 truncateToFit="true"
 										 
 										 palette="{paletteCmb.selectedItem}"
-										 colorEncodingField="{colorCmb.selectedItem}"
-										 sizeEncodingField="{sizeCmb.selectedItem}"
+										 colorEncodingField="{colorCmb.selectedItem.fieldName}"
+										 sizeEncodingField="{sizeCmb.selectedItem.fieldName}"
 										 
 										 jkDataMouseOver="treemapMouseOver(event)"
 										 jkDataMouseOut="treemapMouseOut(event)"
