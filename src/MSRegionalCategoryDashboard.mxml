@@ -20,6 +20,7 @@
 			import mx.events.DragEvent;
 			import mx.events.FlexEvent;
 			
+			import org.juicekit.query.methods.*;
 			import org.juicekit.events.DataMouseEvent;
 			import org.juicekit.util.GraphUtil;
 			import org.juicekit.util.Strings;
@@ -74,7 +75,12 @@
 			{
 				if (treemap && currentState == 'treemap')
 				{
-					treemap.data = GraphUtil.treeMap(DataService.data.source, levelOrder.source, ['revenue', 'percentGrowth', 'profitMargin', 'percentDiscount', 'avgRevenue']);
+					treemap.data = GraphUtil.treeMap(DataService.data.source, levelOrder.source, 
+						['revenue', 
+							{'percentGrowth': wtdaverage('percentGrowth', 'revenue')}, 
+							{'profitMargin': wtdaverage('profitMargin', 'revenue')}, 
+							{'percentDiscount': wtdaverage('percentDiscount', 'revenue')}, 
+							{'avgRevenue': wtdaverage('avgRevenue', 'revenue')}]);
 					treemap.dataRoot = (treemap.data as Tree).root;
 					
 					treemap.vis.removeEventListener(VisualizationEvent.UPDATE, calculateScaleMinMax);
